@@ -16,19 +16,28 @@ local isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEna
 
 local MIN_WIDTH, MIN_HEIGHT, DEFAULT_WIDTH, DEFAULT_HEIGHT
 if isMobile then
-	MIN_WIDTH, MIN_HEIGHT = 300, 260
-	DEFAULT_WIDTH, DEFAULT_HEIGHT = 320, 280
+	MIN_WIDTH, MIN_HEIGHT = 300, 340
 else
 	MIN_WIDTH, MIN_HEIGHT = 460, 320
-	DEFAULT_WIDTH, DEFAULT_HEIGHT = 480, 340
+	DEFAULT_WIDTH, DEFAULT_HEIGHT = 760, 560
 end
+
+local SIDEBAR_WIDTH = isMobile and 108 or 160
 
 local function getMaxSize()
 	local screen = getScreenSize()
-	local margin = isMobile and 24 or 60
-	local hardCapWidth = isMobile and 700 or 980
-	local hardCapHeight = isMobile and 560 or 760
+	local margin = isMobile and 16 or 60
+	local hardCapWidth = isMobile and 900 or 1400
+	local hardCapHeight = isMobile and 900 or 1000
 	return math.min(hardCapWidth, screen.X - margin), math.min(hardCapHeight, screen.Y - margin)
+end
+
+if isMobile then
+	-- Fill almost the whole phone screen by default instead of a fixed pixel size,
+	-- so it looks right no matter what device this is played on.
+	local maxW, maxH = getMaxSize()
+	DEFAULT_WIDTH = maxW
+	DEFAULT_HEIGHT = maxH
 end
 
 do
@@ -162,11 +171,19 @@ end
 
 local flying = false
 local flyBV, flyBG
+local FLY_BIND_NAME = "k3wlFlyStep"
 
 local function stopFly()
 	flying = false
+	pcall(function() RunService:UnbindFromRenderStep(FLY_BIND_NAME) end)
 	if flyBV then flyBV:Destroy(); flyBV = nil end
 	if flyBG then flyBG:Destroy(); flyBG = nil end
+	local char = LocalPlayer.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum then
+		hum.PlatformStand = false
+		hum.AutoRotate = true
+	end
 end
 
 local noclipConn
@@ -248,28 +265,49 @@ Commands["superjump"] = function()
 	if hum then hum.UseJumpPower = true; hum.JumpPower = 120 end
 end
 
+local FLY_SPEED = 60
+
 Commands["fly"] = function()
 	local char, hum, hrp = getChar()
 	if not hrp or not hum then return end
 	stopFly()
 	flying = true
-	flyBV = Instance.new("BodyVelocity")
-	flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	flyBV.Velocity = Vector3.new()
-	flyBV.Parent = hrp
+	hum.PlatformStand = true
+	hum.AutoRotate = false
+	pcall(function() hum:ChangeState(Enum.HumanoidStateType.Physics) end)
+
 	flyBG = Instance.new("BodyGyro")
-	flyBG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-	flyBG.CFrame = hrp.CFrame
+	flyBG.P = 3e4
+	flyBG.D = 500
+	flyBG.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	flyBG.CFrame = camera.CFrame
 	flyBG.Parent = hrp
 
-	task.spawn(function()
-		while flying and hrp.Parent do
-			local moveDir = hum.MoveDirection
-			local upDown = 0
-			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then upDown = 1 end
-			flyBV.Velocity = (moveDir * 50) + Vector3.new(0, upDown * 50, 0)
-			flyBG.CFrame = camera.CFrame
-			task.wait()
+	flyBV = Instance.new("BodyVelocity")
+	flyBV.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	flyBV.Velocity = Vector3.new(0, 0, 0)
+	flyBV.Parent = hrp
+
+	RunService:BindToRenderStep(FLY_BIND_NAME, Enum.RenderPriority.Camera.Value + 1, function()
+		if not flying or not hrp.Parent then
+			stopFly()
+			return
+		end
+
+		local camCFrame = camera.CFrame
+		flyBG.CFrame = camCFrame
+
+		-- Pure camera-relative movement: looking up while moving forward flies you up.
+		local moveVector = Vector3.new(0, 0, 0)
+		if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += camCFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= camCFrame.LookVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= camCFrame.RightVector end
+		if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += camCFrame.RightVector end
+
+		if moveVector.Magnitude > 0 then
+			flyBV.Velocity = moveVector.Unit * FLY_SPEED
+		else
+			flyBV.Velocity = Vector3.new(0, 0, 0)
 		end
 	end)
 end
@@ -759,6 +797,8 @@ screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+local showNotification -- forward declared; defined below, used by runCommand above it
+
 local toggleButton = Instance.new("TextButton")
 local toggleSize = isMobile and 58 or 46
 toggleButton.Size = UDim2.new(0, toggleSize, 0, toggleSize)
@@ -802,11 +842,39 @@ title.TextColor3 = COLOR_TEXT
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = titleBar
 
+local versionLabel = Instance.new("TextLabel")
+versionLabel.Size = UDim2.new(0, 22, 0, 14)
+versionLabel.Position = UDim2.new(0, 76, 0, 1)
+versionLabel.BackgroundTransparency = 1
+versionLabel.Text = "v1"
+versionLabel.Font = FONT
+versionLabel.TextSize = 10
+versionLabel.TextColor3 = COLOR_SUBTEXT
+versionLabel.TextXAlignment = Enum.TextXAlignment.Left
+versionLabel.Parent = titleBar
+
+local betaBadge = Instance.new("Frame")
+betaBadge.Size = UDim2.new(0, 34, 0, 14)
+betaBadge.Position = UDim2.new(0, 98, 0, 1)
+betaBadge.BackgroundColor3 = Color3.fromRGB(255, 200, 40)
+betaBadge.BorderSizePixel = 0
+betaBadge.Parent = titleBar
+Instance.new("UICorner", betaBadge).CornerRadius = UDim.new(0, 4)
+
+local betaBadgeLabel = Instance.new("TextLabel")
+betaBadgeLabel.Size = UDim2.new(1, 0, 1, 0)
+betaBadgeLabel.BackgroundTransparency = 1
+betaBadgeLabel.Text = "BETA"
+betaBadgeLabel.Font = FONT_BOLD
+betaBadgeLabel.TextSize = 9
+betaBadgeLabel.TextColor3 = Color3.fromRGB(74, 27, 12)
+betaBadgeLabel.Parent = betaBadge
+
 local subtitle = Instance.new("TextLabel")
 subtitle.Size = UDim2.new(0.5, -110, 0, 14)
 subtitle.Position = UDim2.new(0, 16, 0, 22)
 subtitle.BackgroundTransparency = 1
-subtitle.Text = "Self-only mode"
+subtitle.Text = "By: k3wlkid"
 subtitle.Font = FONT
 subtitle.TextSize = 10
 subtitle.TextColor3 = COLOR_SUBTEXT
@@ -861,8 +929,101 @@ do
 	end)
 end
 
+local resizeHandleSize = isMobile and 44 or 26
+
+local function createResizeHandle(anchor)
+	-- anchor: "bottom-right", "top-left", "top-right"
+	local handle = Instance.new("TextButton")
+	handle.Size = UDim2.new(0, resizeHandleSize, 0, resizeHandleSize)
+	if anchor == "bottom-right" then
+		handle.Position = UDim2.new(1, -resizeHandleSize, 1, -resizeHandleSize)
+	elseif anchor == "top-left" then
+		handle.Position = UDim2.new(0, 0, 0, 0)
+	elseif anchor == "top-right" then
+		handle.Position = UDim2.new(1, -resizeHandleSize, 0, 0)
+	end
+	handle.BackgroundColor3 = COLOR_ROW
+	handle.BackgroundTransparency = 0.5
+	handle.BorderSizePixel = 0
+	handle.Text = ""
+	handle.AutoButtonColor = false
+	handle.ZIndex = 50
+	handle.Parent = main
+	Instance.new("UICorner", handle).CornerRadius = UDim.new(0, 6)
+
+	local icon = Instance.new("TextLabel")
+	icon.Size = UDim2.new(1, 0, 1, 0)
+	icon.BackgroundTransparency = 1
+	icon.Text = "⋰"
+	icon.Font = FONT_BOLD
+	icon.TextSize = isMobile and 22 or 18
+	icon.TextColor3 = COLOR_ACCENT
+	icon.Rotation = (anchor == "top-right") and 0 or 90
+	icon.ZIndex = 50
+	icon.Parent = handle
+
+	local resizing, resizeStart, startSize, startPos = false, nil, nil, nil
+
+	local function beginResize(input)
+		resizing = true
+		resizeStart = input.Position
+		startSize = main.Size
+		startPos = main.Position
+		handle.BackgroundTransparency = 0.1
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				resizing = false
+				handle.BackgroundTransparency = 0.5
+			end
+		end)
+	end
+
+	handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			beginResize(input)
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - resizeStart
+			local maxW, maxH = getMaxSize()
+			local screen = getScreenSize()
+
+			if anchor == "bottom-right" then
+				local newWidth = math.clamp(startSize.X.Offset + delta.X, MIN_WIDTH, maxW)
+				local newHeight = math.clamp(startSize.Y.Offset + delta.Y, MIN_HEIGHT, maxH)
+				main.Size = UDim2.new(0, newWidth, 0, newHeight)
+			elseif anchor == "top-left" then
+				local newWidth = math.clamp(startSize.X.Offset - delta.X, MIN_WIDTH, maxW)
+				local newHeight = math.clamp(startSize.Y.Offset - delta.Y, MIN_HEIGHT, maxH)
+				local widthChange = newWidth - startSize.X.Offset
+				local heightChange = newHeight - startSize.Y.Offset
+				local newAbsX = (startPos.X.Scale * screen.X + startPos.X.Offset) - widthChange
+				local newAbsY = (startPos.Y.Scale * screen.Y + startPos.Y.Offset) - heightChange
+				main.Size = UDim2.new(0, newWidth, 0, newHeight)
+				main.Position = UDim2.new(0, newAbsX, 0, newAbsY)
+			elseif anchor == "top-right" then
+				local newWidth = math.clamp(startSize.X.Offset + delta.X, MIN_WIDTH, maxW)
+				local newHeight = math.clamp(startSize.Y.Offset - delta.Y, MIN_HEIGHT, maxH)
+				local heightChange = newHeight - startSize.Y.Offset
+				local newAbsY = (startPos.Y.Scale * screen.Y + startPos.Y.Offset) - heightChange
+				main.Size = UDim2.new(0, newWidth, 0, newHeight)
+				main.Position = UDim2.new(0, startPos.X.Scale * screen.X + startPos.X.Offset, 0, newAbsY)
+			end
+		end
+	end)
+
+	return handle
+end
+
+createResizeHandle("bottom-right")
+createResizeHandle("top-left")
+createResizeHandle("top-right")
+
 local sidebar = Instance.new("Frame")
-sidebar.Size = UDim2.new(0, 160, 1, -40)
+sidebar.Size = UDim2.new(0, SIDEBAR_WIDTH, 1, -40)
 sidebar.Position = UDim2.new(0, 0, 0, 40)
 sidebar.BackgroundColor3 = COLOR_SIDEBAR
 sidebar.BorderSizePixel = 0
@@ -907,8 +1068,8 @@ catLayout.Padding = UDim.new(0, 2)
 catLayout.Parent = catList
 
 local content = Instance.new("Frame")
-content.Size = UDim2.new(1, -160, 1, -40)
-content.Position = UDim2.new(0, 160, 0, 40)
+content.Size = UDim2.new(1, -SIDEBAR_WIDTH, 1, -40)
+content.Position = UDim2.new(0, SIDEBAR_WIDTH, 0, 40)
 content.BackgroundColor3 = COLOR_BG
 content.BorderSizePixel = 0
 content.Parent = main
@@ -982,6 +1143,310 @@ local function getCurrentValue()
 	return rawValue ~= "" and rawValue or nil
 end
 
+-- ============================================================
+-- Home page + Update Log (restored)
+-- ============================================================
+
+local CHANGELOG = {
+	{
+		version = "v1.0.0",
+		tag = "BETA",
+		title = "Self-Only Release",
+		sections = {
+			{
+				header = "🎉 New Features",
+				items = {
+					"Launched k3wlgui — a full command panel with categories and 40+ self commands",
+					"Added a self ESP marker toggle",
+					"Added a value box for commands that need a number, like Speed",
+				},
+			},
+			{
+				header = "🛠️ Improvements",
+				items = {
+					"Added full window controls: drag, resize, and close",
+					"Added a new \"All\" tab combining every command from every category into one list",
+					"Added a search bar to quickly filter commands by name",
+					"Reworked Fly to move relative to your camera — look up to go up",
+					"Restored toast notifications for command feedback",
+				},
+			},
+			{
+				header = "🎨 Visual Changes",
+				items = {
+					"Dark maroon visual theme across the whole panel",
+					"Added version and BETA tags to the title bar",
+					"Added this Home page and Update Log",
+				},
+			},
+		},
+	},
+}
+
+local homePanel = Instance.new("Frame")
+homePanel.Size = UDim2.new(1, -32, 1, -24)
+homePanel.Position = UDim2.new(0, 16, 0, 12)
+homePanel.BackgroundTransparency = 1
+homePanel.Visible = false
+homePanel.Parent = content
+
+local homeTitle = Instance.new("TextLabel")
+homeTitle.Size = UDim2.new(1, 0, 0, 34)
+homeTitle.Position = UDim2.new(0, 0, 0, 20)
+homeTitle.BackgroundTransparency = 1
+homeTitle.Font = FONT_BOLD
+homeTitle.TextSize = 26
+homeTitle.TextColor3 = COLOR_TEXT
+homeTitle.Text = "k3wlgui"
+homeTitle.Parent = homePanel
+
+local homeBadgeRow = Instance.new("Frame")
+homeBadgeRow.Size = UDim2.new(1, 0, 0, 20)
+homeBadgeRow.Position = UDim2.new(0, 0, 0, 56)
+homeBadgeRow.BackgroundTransparency = 1
+homeBadgeRow.Parent = homePanel
+
+local homeBadgeLayout = Instance.new("UIListLayout")
+homeBadgeLayout.FillDirection = Enum.FillDirection.Horizontal
+homeBadgeLayout.Padding = UDim.new(0, 6)
+homeBadgeLayout.Parent = homeBadgeRow
+
+local homeVersionTag = Instance.new("TextLabel")
+homeVersionTag.Size = UDim2.new(0, 40, 1, 0)
+homeVersionTag.BackgroundTransparency = 1
+homeVersionTag.Font = FONT
+homeVersionTag.TextSize = 12
+homeVersionTag.TextColor3 = COLOR_SUBTEXT
+homeVersionTag.Text = "v1.0.0"
+homeVersionTag.TextXAlignment = Enum.TextXAlignment.Left
+homeVersionTag.Parent = homeBadgeRow
+
+local homeBetaTag = Instance.new("Frame")
+homeBetaTag.Size = UDim2.new(0, 40, 0, 18)
+homeBetaTag.BackgroundColor3 = COLOR_ACCENT
+homeBetaTag.BorderSizePixel = 0
+homeBetaTag.Parent = homeBadgeRow
+Instance.new("UICorner", homeBetaTag).CornerRadius = UDim.new(0, 4)
+
+local homeBetaTagLabel = Instance.new("TextLabel")
+homeBetaTagLabel.Size = UDim2.new(1, 0, 1, 0)
+homeBetaTagLabel.BackgroundTransparency = 1
+homeBetaTagLabel.Font = FONT_BOLD
+homeBetaTagLabel.TextSize = 10
+homeBetaTagLabel.TextColor3 = Color3.fromRGB(74, 27, 12)
+homeBetaTagLabel.Text = "BETA"
+homeBetaTagLabel.Parent = homeBetaTag
+
+local homeSubtitle = Instance.new("TextLabel")
+homeSubtitle.Size = UDim2.new(1, 0, 0, 16)
+homeSubtitle.Position = UDim2.new(0, 0, 0, 82)
+homeSubtitle.BackgroundTransparency = 1
+homeSubtitle.Font = FONT
+homeSubtitle.TextSize = 12
+homeSubtitle.TextColor3 = COLOR_SUBTEXT
+homeSubtitle.Text = "By: k3wlkid"
+homeSubtitle.Parent = homePanel
+
+local homeTagline = Instance.new("TextLabel")
+homeTagline.Size = UDim2.new(1, 0, 0, 40)
+homeTagline.Position = UDim2.new(0, 0, 0, 106)
+homeTagline.BackgroundTransparency = 1
+homeTagline.Font = FONT
+homeTagline.TextSize = 12
+homeTagline.TextColor3 = COLOR_SUBTEXT
+homeTagline.TextWrapped = true
+homeTagline.Text = "Your all-in-one self command panel — customization, movement, and pranks, all in one place."
+homeTagline.Parent = homePanel
+
+local homeStatsRow = Instance.new("Frame")
+homeStatsRow.Size = UDim2.new(1, 0, 0, 24)
+homeStatsRow.Position = UDim2.new(0, 0, 0, 152)
+homeStatsRow.BackgroundTransparency = 1
+homeStatsRow.Parent = homePanel
+
+local homeStatsLayout = Instance.new("UIListLayout")
+homeStatsLayout.FillDirection = Enum.FillDirection.Horizontal
+homeStatsLayout.Padding = UDim.new(0, 16)
+homeStatsLayout.Parent = homeStatsRow
+
+local function addStat(text)
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(0, 150, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Font = FONT
+	lbl.TextSize = 11
+	lbl.TextColor3 = COLOR_ACCENT
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	lbl.Text = text
+	lbl.Parent = homeStatsRow
+end
+
+addStat(("%d commands"):format(#ALL_COMMANDS))
+addStat(("%d categories"):format(#BASE_CATEGORIES))
+
+local updateLogButton = Instance.new("TextButton")
+updateLogButton.Size = UDim2.new(0, 190, 0, 34)
+updateLogButton.Position = UDim2.new(0, 0, 0, 196)
+updateLogButton.BackgroundColor3 = COLOR_ACCENT
+updateLogButton.AutoButtonColor = false
+updateLogButton.Font = FONT_BOLD
+updateLogButton.TextSize = 13
+updateLogButton.TextColor3 = COLOR_TEXT
+updateLogButton.Text = "📜  View Update Log"
+updateLogButton.Parent = homePanel
+Instance.new("UICorner", updateLogButton).CornerRadius = UDim.new(0, 6)
+
+local changelogPanel = Instance.new("Frame")
+changelogPanel.Size = UDim2.new(1, -SIDEBAR_WIDTH, 1, -40)
+changelogPanel.Position = UDim2.new(0, SIDEBAR_WIDTH, 0, 40)
+changelogPanel.BackgroundColor3 = COLOR_BG
+changelogPanel.BorderSizePixel = 0
+changelogPanel.ZIndex = 15
+changelogPanel.Visible = false
+changelogPanel.Parent = main
+
+local changelogHeader = Instance.new("TextLabel")
+changelogHeader.Size = UDim2.new(1, -100, 0, 30)
+changelogHeader.Position = UDim2.new(0, 16, 0, 12)
+changelogHeader.BackgroundTransparency = 1
+changelogHeader.Font = FONT_BOLD
+changelogHeader.TextSize = 16
+changelogHeader.TextColor3 = COLOR_TEXT
+changelogHeader.TextXAlignment = Enum.TextXAlignment.Left
+changelogHeader.Text = "Update Log"
+changelogHeader.ZIndex = 15
+changelogHeader.Parent = changelogPanel
+
+local changelogBackButton = Instance.new("TextButton")
+changelogBackButton.Size = UDim2.new(0, 76, 0, 26)
+changelogBackButton.Position = UDim2.new(1, -92, 0, 14)
+changelogBackButton.BackgroundColor3 = COLOR_ROW
+changelogBackButton.AutoButtonColor = false
+changelogBackButton.Font = FONT
+changelogBackButton.TextSize = 12
+changelogBackButton.TextColor3 = COLOR_SUBTEXT
+changelogBackButton.Text = "← Back"
+changelogBackButton.ZIndex = 15
+changelogBackButton.Parent = changelogPanel
+Instance.new("UICorner", changelogBackButton).CornerRadius = UDim.new(0, 6)
+
+local changelogList = Instance.new("ScrollingFrame")
+changelogList.Size = UDim2.new(1, -32, 1, -60)
+changelogList.Position = UDim2.new(0, 16, 0, 52)
+changelogList.BackgroundTransparency = 1
+changelogList.BorderSizePixel = 0
+changelogList.ScrollBarThickness = 4
+changelogList.ScrollBarImageColor3 = COLOR_ACCENT
+changelogList.CanvasSize = UDim2.new(0, 0, 0, 0)
+changelogList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+changelogList.ZIndex = 15
+changelogList.Parent = changelogPanel
+
+local changelogLayout = Instance.new("UIListLayout")
+changelogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+changelogLayout.Padding = UDim.new(0, 14)
+changelogLayout.Parent = changelogList
+
+local function buildChangelog()
+	for i, release in ipairs(CHANGELOG) do
+		local entry = Instance.new("Frame")
+		entry.Size = UDim2.new(1, 0, 0, 0)
+		entry.AutomaticSize = Enum.AutomaticSize.Y
+		entry.BackgroundColor3 = COLOR_ROW
+		entry.LayoutOrder = i
+		entry.ZIndex = 15
+		entry.Parent = changelogList
+		Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 8)
+
+		local entryPad = Instance.new("UIPadding")
+		entryPad.PaddingTop = UDim.new(0, 12)
+		entryPad.PaddingBottom = UDim.new(0, 12)
+		entryPad.PaddingLeft = UDim.new(0, 14)
+		entryPad.PaddingRight = UDim.new(0, 14)
+		entryPad.Parent = entry
+
+		local entryLayout = Instance.new("UIListLayout")
+		entryLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		entryLayout.Padding = UDim.new(0, 8)
+		entryLayout.Parent = entry
+
+		local headerRow = Instance.new("Frame")
+		headerRow.Size = UDim2.new(1, 0, 0, 20)
+		headerRow.BackgroundTransparency = 1
+		headerRow.LayoutOrder = 1
+		headerRow.ZIndex = 15
+		headerRow.Parent = entry
+
+		local versionText = Instance.new("TextLabel")
+		versionText.Size = UDim2.new(0, 160, 1, 0)
+		versionText.BackgroundTransparency = 1
+		versionText.Font = FONT_BOLD
+		versionText.TextSize = 14
+		versionText.TextColor3 = COLOR_TEXT
+		versionText.TextXAlignment = Enum.TextXAlignment.Left
+		versionText.Text = release.version .. " — " .. release.title
+		versionText.ZIndex = 15
+		versionText.Parent = headerRow
+
+		if release.tag then
+			local tagLabel = Instance.new("TextLabel")
+			tagLabel.Size = UDim2.new(0, 40, 0, 16)
+			tagLabel.Position = UDim2.new(0, 230, 0, 2)
+			tagLabel.BackgroundColor3 = COLOR_ACCENT
+			tagLabel.Font = FONT_BOLD
+			tagLabel.TextSize = 9
+			tagLabel.TextColor3 = Color3.fromRGB(74, 27, 12)
+			tagLabel.Text = release.tag
+			tagLabel.ZIndex = 15
+			tagLabel.Parent = headerRow
+			Instance.new("UICorner", tagLabel).CornerRadius = UDim.new(0, 4)
+		end
+
+		for si, section in ipairs(release.sections) do
+			local sectionLabel = Instance.new("TextLabel")
+			sectionLabel.Size = UDim2.new(1, 0, 0, 16)
+			sectionLabel.BackgroundTransparency = 1
+			sectionLabel.Font = FONT_BOLD
+			sectionLabel.TextSize = 12
+			sectionLabel.TextColor3 = COLOR_ACCENT
+			sectionLabel.TextXAlignment = Enum.TextXAlignment.Left
+			sectionLabel.Text = section.header
+			sectionLabel.LayoutOrder = 1 + si * 10
+			sectionLabel.ZIndex = 15
+			sectionLabel.Parent = entry
+
+			for ii, item in ipairs(section.items) do
+				local itemLabel = Instance.new("TextLabel")
+				itemLabel.Size = UDim2.new(1, 0, 0, 0)
+				itemLabel.AutomaticSize = Enum.AutomaticSize.Y
+				itemLabel.BackgroundTransparency = 1
+				itemLabel.Font = FONT
+				itemLabel.TextSize = 11
+				itemLabel.TextColor3 = COLOR_SUBTEXT
+				itemLabel.TextWrapped = true
+				itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+				itemLabel.Text = "•  " .. item
+				itemLabel.LayoutOrder = 1 + si * 10 + ii
+				itemLabel.ZIndex = 15
+				itemLabel.Parent = entry
+			end
+		end
+	end
+end
+
+buildChangelog()
+
+local function openChangelog()
+	changelogPanel.Visible = true
+end
+
+local function closeChangelog()
+	changelogPanel.Visible = false
+end
+
+updateLogButton.MouseButton1Click:Connect(openChangelog)
+changelogBackButton.MouseButton1Click:Connect(closeChangelog)
+
 local function runCommand(commandName, label)
 	local fn = Commands[commandName]
 	if not fn then
@@ -991,8 +1456,10 @@ local function runCommand(commandName, label)
 	local ok, err = pcall(fn, getCurrentValue())
 	if ok then
 		setStatus("Ran '" .. label .. "'", false)
+		showNotification("Ran: " .. label, 2)
 	else
 		setStatus("Error running '" .. label .. "'", true)
+		showNotification("Error running: " .. label, 3)
 		warn(err)
 	end
 end
@@ -1065,32 +1532,15 @@ local catButtons = {}
 local function selectCategory(cat)
 	contentHeader.Text = cat.name
 	clearRows()
+	closeChangelog()
 
 	local isHome = cat.name == "Home"
 	contentHeader.Visible = not isHome
 	rowList.Visible = not isHome
 	valueBox.Visible = not isHome
+	homePanel.Visible = isHome
 
-	if isHome then
-		contentHeader.Text = "k3wlgui"
-		contentHeader.Visible = true
-		local homeLabel = Instance.new("TextLabel")
-		homeLabel.Name = "__homeLabel"
-		homeLabel.Size = UDim2.new(1, -32, 0, 60)
-		homeLabel.Position = UDim2.new(0, 16, 0, 50)
-		homeLabel.BackgroundTransparency = 1
-		homeLabel.Font = FONT
-		homeLabel.TextSize = 12
-		homeLabel.TextColor3 = COLOR_SUBTEXT
-		homeLabel.TextWrapped = true
-		homeLabel.TextXAlignment = Enum.TextXAlignment.Left
-		homeLabel.TextYAlignment = Enum.TextYAlignment.Top
-		homeLabel.Text = ("Self-only command panel. %d commands across %d categories. Pick a category on the left to get started.")
-			:format(#ALL_COMMANDS, #BASE_CATEGORIES)
-		homeLabel.Parent = content
-	else
-		local existingHome = content:FindFirstChild("__homeLabel")
-		if existingHome then existingHome:Destroy() end
+	if not isHome then
 		for i, data in ipairs(cat.commands) do
 			buildRow(data[1], data[2], data[3], i)
 		end
@@ -1136,8 +1586,8 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	local q = searchBox.Text:lower()
 	if q == "" then return end
 	clearRows()
-	local existingHome = content:FindFirstChild("__homeLabel")
-	if existingHome then existingHome:Destroy() end
+	closeChangelog()
+	homePanel.Visible = false
 	contentHeader.Visible = true
 	rowList.Visible = true
 	valueBox.Visible = true
@@ -1152,6 +1602,64 @@ searchBox:GetPropertyChangedSignal("Text"):Connect(function()
 	end
 	contentHeader.Text = "Search results"
 end)
+
+LocalPlayer.CharacterAdded:Connect(function()
+	stopFly()
+	stopNoclip()
+end)
+
+function showNotification(text, duration)
+	duration = duration or 6
+	local notif = Instance.new("Frame")
+	notif.Size = UDim2.new(0, 320, 0, 0)
+	notif.AutomaticSize = Enum.AutomaticSize.Y
+	notif.Position = UDim2.new(1, -336, 0, 16)
+	notif.BackgroundColor3 = COLOR_SIDEBAR
+	notif.BorderSizePixel = 0
+	notif.Parent = screenGui
+	Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 8)
+
+	local notifStroke = Instance.new("UIStroke")
+	notifStroke.Color = COLOR_ACCENT
+	notifStroke.Thickness = 1
+	notifStroke.Parent = notif
+
+	local notifPadding = Instance.new("UIPadding")
+	notifPadding.PaddingTop = UDim.new(0, 10)
+	notifPadding.PaddingBottom = UDim.new(0, 10)
+	notifPadding.PaddingLeft = UDim.new(0, 12)
+	notifPadding.PaddingRight = UDim.new(0, 12)
+	notifPadding.Parent = notif
+
+	local notifLabel = Instance.new("TextLabel")
+	notifLabel.Size = UDim2.new(1, 0, 0, 0)
+	notifLabel.AutomaticSize = Enum.AutomaticSize.Y
+	notifLabel.BackgroundTransparency = 1
+	notifLabel.Font = FONT
+	notifLabel.TextSize = 13
+	notifLabel.TextColor3 = COLOR_TEXT
+	notifLabel.TextWrapped = true
+	notifLabel.TextXAlignment = Enum.TextXAlignment.Left
+	notifLabel.Text = text
+	notifLabel.Parent = notif
+
+	notif.BackgroundTransparency = 1
+	notifLabel.TextTransparency = 1
+	notifStroke.Transparency = 1
+	TweenService:Create(notif, TweenInfo.new(0.25), {BackgroundTransparency = 0}):Play()
+	TweenService:Create(notifStroke, TweenInfo.new(0.25), {Transparency = 0.2}):Play()
+	TweenService:Create(notifLabel, TweenInfo.new(0.25), {TextTransparency = 0}):Play()
+
+	task.delay(duration, function()
+		TweenService:Create(notif, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+		TweenService:Create(notifStroke, TweenInfo.new(0.4), {Transparency = 1}):Play()
+		TweenService:Create(notifLabel, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+		task.wait(0.4)
+		notif:Destroy()
+	end)
+end
+
+showNotification("Hello! Welcome to k3wlgui!1!11! Self-only mode — commands act on yourself.", 6)
 
 local isOpen = false
 local function setOpen(open)
