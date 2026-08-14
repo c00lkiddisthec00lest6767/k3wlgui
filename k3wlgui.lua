@@ -1064,7 +1064,7 @@ catList.Parent = sidebar
 
 local catLayout = Instance.new("UIListLayout")
 catLayout.SortOrder = Enum.SortOrder.LayoutOrder
-catLayout.Padding = UDim.new(0, 2)
+catLayout.Padding = UDim.new(0, isMobile and 8 or 5)
 catLayout.Parent = catList
 
 local content = Instance.new("Frame")
@@ -1553,7 +1553,7 @@ local function selectCategory(cat)
 	end
 end
 
-local CATEGORY_BTN_HEIGHT = isMobile and 40 or 32
+local CATEGORY_BTN_HEIGHT = isMobile and 52 or 36
 
 for i, cat in ipairs(CATEGORIES) do
 	local btn = Instance.new("TextButton")
@@ -1659,7 +1659,7 @@ function showNotification(text, duration)
 	end)
 end
 
-showNotification("Hello! Welcome to k3wlgui!1!11! Self-only mode — commands act on yourself.", 6)
+showNotification("Hello! Welcome to k3wlgui!1!11! Please remember that this script is still in the works and could be exposed to some anti-cheats.", 6)
 
 local isOpen = false
 local function setOpen(open)
