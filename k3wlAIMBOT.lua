@@ -3,7 +3,6 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -53,6 +52,28 @@ status.Font = Enum.Font.Gotham
 status.Parent = background
 
 --==================================================
+-- Mobile Toggle Button
+--==================================================
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.fromOffset(180, 50)
+toggleButton.AnchorPoint = Vector2.new(0.5, 1)
+toggleButton.Position = UDim2.new(0.5, 0, 1, -30)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleButton.BorderSizePixel = 0
+toggleButton.Text = "AIM: ON"
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.TextScaled = true
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.Active = true
+toggleButton.Parent = gui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 10)
+toggleCorner.Parent = toggleButton
+
+--==================================================
 -- FOV Circle
 --==================================================
 
@@ -73,6 +94,35 @@ stroke.Color = Color3.fromRGB(255, 50, 50)
 stroke.Thickness = 2
 stroke.Transparency = 0.15
 stroke.Parent = fov
+
+--==================================================
+-- Update Toggle UI
+--==================================================
+
+local function updateToggle()
+	if AIM_ENABLED then
+		status.Text = "AIM: ON"
+		toggleButton.Text = "AIM: ON"
+
+		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+		stroke.Color = Color3.fromRGB(255, 50, 50)
+	else
+		status.Text = "AIM: OFF"
+		toggleButton.Text = "AIM: OFF"
+
+		toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+		stroke.Color = Color3.fromRGB(100, 100, 100)
+	end
+end
+
+--==================================================
+-- Mobile Button Toggle
+--==================================================
+
+toggleButton.Activated:Connect(function()
+	AIM_ENABLED = not AIM_ENABLED
+	updateToggle()
+end)
 
 --==================================================
 -- Team Check
@@ -159,6 +209,7 @@ RunService:BindToRenderStep(
 	"k3wlAIMBOT",
 	Enum.RenderPriority.Camera.Value + 1,
 	function()
+
 		local camera = workspace.CurrentCamera
 
 		if not camera then
@@ -171,6 +222,7 @@ RunService:BindToRenderStep(
 			camera.ViewportSize.Y * 0.5
 		)
 
+		-- Stop aiming when disabled.
 		if not AIM_ENABLED then
 			return
 		end
@@ -178,6 +230,7 @@ RunService:BindToRenderStep(
 		local target = getNearestTarget(camera)
 
 		if target then
+
 			local cameraPosition = camera.CFrame.Position
 
 			local targetCFrame = CFrame.lookAt(
@@ -193,24 +246,5 @@ RunService:BindToRenderStep(
 	end
 )
 
---==================================================
--- Toggle
---==================================================
-
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
-		return
-	end
-
-	if input.KeyCode == Enum.KeyCode.RightShift then
-		AIM_ENABLED = not AIM_ENABLED
-
-		status.Text = AIM_ENABLED
-			and "AIM: ON"
-			or "AIM: OFF"
-
-		stroke.Color = AIM_ENABLED
-			and Color3.fromRGB(255, 50, 50)
-			or Color3.fromRGB(100, 100, 100)
-	end
-end)
+-- Set initial UI state
+updateToggle()
