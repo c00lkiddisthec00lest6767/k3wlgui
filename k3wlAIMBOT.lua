@@ -1,27 +1,30 @@
 -- k3wlAIMBOT
--- For use in your own Roblox experience.
+-- LocalScript - put in StarterPlayer > StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 -- Settings
 local FOV_RADIUS = 150
 local AIM_ENABLED = true
+local AIM_SMOOTHNESS = 0.15
 
---// UI
+--==================================================
+-- UI
+--==================================================
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "k3wlAIMBOT"
 gui.ResetOnSpawn = false
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.Parent = PlayerGui
 
 local background = Instance.new("Frame")
 background.Size = UDim2.fromOffset(220, 70)
-background.Position = UDim2.new(0, 20, 0, 20)
+background.Position = UDim2.fromOffset(20, 20)
 background.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 background.BorderSizePixel = 0
 background.Parent = gui
@@ -49,7 +52,10 @@ status.TextScaled = true
 status.Font = Enum.Font.Gotham
 status.Parent = background
 
---// FOV circle
+--==================================================
+-- FOV Circle
+--==================================================
+
 local fov = Instance.new("Frame")
 fov.Name = "FOV"
 fov.Size = UDim2.fromOffset(FOV_RADIUS * 2, FOV_RADIUS * 2)
@@ -68,22 +74,16 @@ stroke.Thickness = 2
 stroke.Transparency = 0.15
 stroke.Parent = fov
 
---// Notification
-task.spawn(function()
-	StarterGui:SetCore("SendNotification", {
-		Title = "k3wlAIMBOT",
-		Text = "simple aimbot by k3wlkid, hope you like it.",
-		Duration = 6
-	})
-end)
+--==================================================
+-- Team Check
+--==================================================
 
---// Team check
 local function isEnemy(player)
 	if player == LocalPlayer then
 		return false
 	end
 
-	-- Don't target teammates.
+	-- If both players have teams, don't target teammates.
 	if LocalPlayer.Team ~= nil and player.Team ~= nil then
 		if LocalPlayer.Team == player.Team then
 			return false
@@ -93,42 +93,54 @@ local function isEnemy(player)
 	return true
 end
 
---// Find nearest enemy HumanoidRootPart inside FOV
-local function getNearestTarget()
-	local character = LocalPlayer.Character
-	if not character then
-		return nil
-	end
+--==================================================
+-- Find Closest HRP Inside FOV
+--==================================================
 
-	local nearestRoot = nil
-	local nearestDistance = FOV_RADIUS
+local function getNearestTarget(camera)
+	local closestRoot = nil
+	local closestDistance = FOV_RADIUS
 
-	local mousePosition = Vector2.new(
-		Camera.ViewportSize.X / 2,
-		Camera.ViewportSize.Y / 2
+	local viewportSize = camera.ViewportSize
+
+	local screenCenter = Vector2.new(
+		viewportSize.X * 0.5,
+		viewportSize.Y * 0.5
 	)
 
 	for _, player in ipairs(Players:GetPlayers()) do
+
 		if isEnemy(player) then
-			local targetCharacter = player.Character
 
-			if targetCharacter then
-				local humanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
-				local root = targetCharacter:FindFirstChild("HumanoidRootPart")
+			local character = player.Character
 
-				if humanoid and root and humanoid.Health > 0 then
-					local screenPosition, visible =
-						Camera:WorldToViewportPoint(root.Position)
+			if character then
 
-					if visible and screenPosition.Z > 0 then
-						local distance = (
-							Vector2.new(screenPosition.X, screenPosition.Y)
-							- mousePosition
-						).Magnitude
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				local root = character:FindFirstChild("HumanoidRootPart")
 
-						if distance < nearestDistance then
-							nearestDistance = distance
-							nearestRoot = root
+				if humanoid
+					and humanoid.Health > 0
+					and root
+					and root:IsDescendantOf(workspace)
+				then
+
+					local screenPosition, onScreen =
+						camera:WorldToViewportPoint(root.Position)
+
+					if onScreen and screenPosition.Z > 0 then
+
+						local targetPosition = Vector2.new(
+							screenPosition.X,
+							screenPosition.Y
+						)
+
+						local distance =
+							(targetPosition - screenCenter).Magnitude
+
+						if distance <= closestDistance then
+							closestDistance = distance
+							closestRoot = root
 						end
 					end
 				end
@@ -136,38 +148,54 @@ local function getNearestTarget()
 		end
 	end
 
-	return nearestRoot
+	return closestRoot
 end
 
---// Aim
-RunService.RenderStepped:Connect(function()
-	local viewport = Camera.ViewportSize
+--==================================================
+-- Main
+--==================================================
 
-	fov.Position = UDim2.fromOffset(
-		viewport.X / 2,
-		viewport.Y / 2
-	)
+RunService:BindToRenderStep(
+	"k3wlAIMBOT",
+	Enum.RenderPriority.Camera.Value + 1,
+	function()
+		local camera = workspace.CurrentCamera
 
-	if not AIM_ENABLED then
-		return
-	end
+		if not camera then
+			return
+		end
 
-	local target = getNearestTarget()
-
-	if target then
-		-- Smoothly point the camera at the target.
-		local cameraPosition = Camera.CFrame.Position
-		local targetCFrame = CFrame.lookAt(
-			cameraPosition,
-			target.Position
+		-- Keep FOV circle centered on the actual viewport.
+		fov.Position = UDim2.fromOffset(
+			camera.ViewportSize.X * 0.5,
+			camera.ViewportSize.Y * 0.5
 		)
 
-		Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 0.15)
-	end
-end)
+		if not AIM_ENABLED then
+			return
+		end
 
---// Toggle with RightShift
-local UserInputService = game:GetService("UserInputService")
+		local target = getNearestTarget(camera)
+
+		if target then
+			local cameraPosition = camera.CFrame.Position
+
+			local targetCFrame = CFrame.lookAt(
+				cameraPosition,
+				target.Position
+			)
+
+			camera.CFrame = camera.CFrame:Lerp(
+				targetCFrame,
+				AIM_SMOOTHNESS
+			)
+		end
+	end
+)
+
+--==================================================
+-- Toggle
+--==================================================
 
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
@@ -176,7 +204,11 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
 	if input.KeyCode == Enum.KeyCode.RightShift then
 		AIM_ENABLED = not AIM_ENABLED
-		status.Text = AIM_ENABLED and "AIM: ON" or "AIM: OFF"
+
+		status.Text = AIM_ENABLED
+			and "AIM: ON"
+			or "AIM: OFF"
+
 		stroke.Color = AIM_ENABLED
 			and Color3.fromRGB(255, 50, 50)
 			or Color3.fromRGB(100, 100, 100)
