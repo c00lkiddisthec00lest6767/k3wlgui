@@ -2,7 +2,6 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "k3wlgui"
@@ -137,7 +136,7 @@ local stopRequested = false
 local currentPrompt = nil
 
 local MAX_LOOPS = 10
-local HOLD_TIME = 4
+local HOLD_TIME = 5
 
 local function findNearestStealPrompt(root)
 
@@ -190,12 +189,10 @@ local function startHold(prompt)
 
 	currentPrompt = prompt
 
-	status.Text = "Status: Holding for 4 seconds..."
+	status.Text = "Status: Holding for 5 seconds..."
 
-	-- Start the prompt hold.
 	prompt:InputHoldBegin()
 
-	-- Keep the hold active for exactly 4 seconds.
 	local startTime = os.clock()
 
 	while os.clock() - startTime < HOLD_TIME do
@@ -214,7 +211,6 @@ local function startHold(prompt)
 		task.wait(0.01)
 	end
 
-	-- Release after the full 4 seconds.
 	prompt:InputHoldEnd()
 
 	currentPrompt = nil
@@ -242,7 +238,6 @@ local function startLoop()
 	local root =
 		character:WaitForChild("HumanoidRootPart")
 
-	-- Save original position.
 	local originalPosition = root.CFrame
 
 	for i = 1, MAX_LOOPS do
@@ -283,19 +278,15 @@ local function startLoop()
 			break
 		end
 
-		-- Teleport to the prompt.
+		-- Teleport to prompt
 		root.CFrame =
 			CFrame.new(
 				targetPosition + Vector3.new(0, 2, 0)
 			)
 
-		-- FULL CAMERA ZOOM OUT.
-		player.CameraMinZoomDistance = 0.5
-		player.CameraMaxZoomDistance = 128
+		-- Fully zoom camera out
 		player.CameraMode = Enum.CameraMode.Classic
 		player.CameraMinZoomDistance = 0.5
-
-		-- Force the camera as far away as Roblox allows.
 		player.CameraMaxZoomDistance = 128
 
 		task.wait(0.15)
@@ -304,8 +295,9 @@ local function startLoop()
 			break
 		end
 
-		-- Hold Steal for 4 seconds.
-		local completed = startHold(prompt)
+		-- Hold for exactly 5 seconds
+		local completed =
+			startHold(prompt)
 
 		if not completed then
 			break
@@ -325,7 +317,7 @@ local function startLoop()
 		root =
 			character:WaitForChild("HumanoidRootPart")
 
-		-- Return to original position.
+		-- Return to original position
 		root.CFrame = originalPosition
 
 		task.wait(0.2)
