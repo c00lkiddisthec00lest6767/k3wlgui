@@ -10,7 +10,7 @@ gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.Parent = player:WaitForChild("PlayerGui")
 
---// Responsive scale
+--// Mobile scaling
 local scale = Instance.new("UIScale")
 scale.Scale = UserInputService.TouchEnabled and 1.15 or 1
 scale.Parent = gui
@@ -39,7 +39,6 @@ local headerCorner = Instance.new("UICorner")
 headerCorner.CornerRadius = UDim.new(0, 14)
 headerCorner.Parent = header
 
--- Cover the bottom rounded area of header
 local headerCover = Instance.new("Frame")
 headerCover.Size = UDim2.new(1, 0, 0, 14)
 headerCover.Position = UDim2.new(0, 0, 1, -14)
@@ -98,7 +97,7 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = startButton
 
---// Make the window draggable on PC and mobile
+--// Dragging support
 local dragging = false
 local dragStart
 local startPosition
@@ -115,7 +114,6 @@ local function updateDrag(input)
 end
 
 header.InputBegan:Connect(function(input)
-
 	if input.UserInputType == Enum.UserInputType.MouseButton1
 		or input.UserInputType == Enum.UserInputType.Touch then
 
@@ -124,30 +122,15 @@ header.InputBegan:Connect(function(input)
 		startPosition = main.Position
 
 		input.Changed:Connect(function()
-
 			if input.UserInputState == Enum.UserInputState.End then
 				dragging = false
 			end
-
 		end)
 	end
 end)
 
-header.InputChanged:Connect(function(input)
-
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
-
-		if dragging then
-			updateDrag(input)
-		end
-	end
-end)
-
 UserInputService.InputChanged:Connect(function(input)
-
 	if dragging then
-
 		if input.UserInputType == Enum.UserInputType.MouseMovement
 			or input.UserInputType == Enum.UserInputType.Touch then
 
@@ -156,12 +139,12 @@ UserInputService.InputChanged:Connect(function(input)
 	end
 end)
 
---// Steal system
+--// Settings
 local running = false
 local MAX_LOOPS = 10
 local WAIT_TIME = 0.5
 
--- Find the nearest Steal prompt
+--// Find nearest Steal prompt
 local function findNearestStealPrompt(root)
 
 	local nearestPrompt = nil
@@ -219,7 +202,7 @@ local function startStealLoop()
 	local root =
 		character:WaitForChild("HumanoidRootPart")
 
-	-- Save spawn position
+	-- Save starting position
 	local originalPosition = root.CFrame
 
 	for i = 1, MAX_LOOPS do
@@ -232,31 +215,26 @@ local function startStealLoop()
 			findNearestStealPrompt(root)
 
 		if not prompt then
-
 			status.Text =
 				"Status: No Steal prompt found"
-
 			break
 		end
 
-		-- Refresh character
+		-- Refresh character/root
 		character =
 			player.Character or player.CharacterAdded:Wait()
 
 		root =
 			character:WaitForChild("HumanoidRootPart")
 
+		-- Get target position
 		local targetPosition
 
 		if prompt.Parent:IsA("BasePart") then
-
-			targetPosition =
-				prompt.Parent.Position
+			targetPosition = prompt.Parent.Position
 
 		elseif prompt.Parent:IsA("Attachment") then
-
-			targetPosition =
-				prompt.Parent.WorldPosition
+			targetPosition = prompt.Parent.WorldPosition
 		end
 
 		if targetPosition then
@@ -270,7 +248,10 @@ local function startStealLoop()
 
 		task.wait()
 
-		-- Activate prompt
+		-- Make the prompt instant
+		prompt.HoldDuration = 0
+
+		-- Activate immediately
 		prompt:InputHoldBegin()
 		prompt:InputHoldEnd()
 
@@ -278,12 +259,12 @@ local function startStealLoop()
 		task.wait(WAIT_TIME)
 
 		-- Return to original position
-		root.CFrame =
-			originalPosition
+		root.CFrame = originalPosition
 
 		task.wait(0.1)
 	end
 
+	-- Finished
 	running = false
 
 	startButton.Active = true
@@ -292,5 +273,5 @@ local function startStealLoop()
 	status.Text = "Status: Finished"
 end
 
---// Start
-startButton.MouseButton1Click:Connect(startStealLoop)
+--// Start button
+startButton.Activated:Connect(startStealLoop)
