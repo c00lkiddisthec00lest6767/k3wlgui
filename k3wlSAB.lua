@@ -1,64 +1,296 @@
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+--// GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "k3wlgui"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = player:WaitForChild("PlayerGui")
 
--- Save the position where the player first spawned
-local startingCFrame = humanoidRootPart.CFrame
+--// Responsive scale
+local scale = Instance.new("UIScale")
+scale.Scale = UserInputService.TouchEnabled and 1.15 or 1
+scale.Parent = gui
 
+--// Main window
+local main = Instance.new("Frame")
+main.Name = "Main"
+main.Size = UDim2.new(0, 330, 0, 215)
+main.Position = UDim2.new(0.5, -165, 0.5, -107)
+main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 14)
+mainCorner.Parent = main
+
+--// Header
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 75)
+header.BackgroundColor3 = Color3.fromRGB(190, 0, 0)
+header.BorderSizePixel = 0
+header.Parent = main
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 14)
+headerCorner.Parent = header
+
+-- Cover the bottom rounded area of header
+local headerCover = Instance.new("Frame")
+headerCover.Size = UDim2.new(1, 0, 0, 14)
+headerCover.Position = UDim2.new(0, 0, 1, -14)
+headerCover.BackgroundColor3 = Color3.fromRGB(190, 0, 0)
+headerCover.BorderSizePixel = 0
+headerCover.Parent = header
+
+--// Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -20, 0, 42)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "k3wlgui: SAB"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = header
+
+--// Credit
+local credit = Instance.new("TextLabel")
+credit.Size = UDim2.new(1, -20, 0, 20)
+credit.Position = UDim2.new(0, 10, 0, 48)
+credit.BackgroundTransparency = 1
+credit.Text = "by k3wlkid"
+credit.TextColor3 = Color3.fromRGB(230, 230, 230)
+credit.TextScaled = true
+credit.Font = Enum.Font.Gotham
+credit.Parent = header
+
+--// Status
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -30, 0, 35)
+status.Position = UDim2.new(0, 15, 0, 88)
+status.BackgroundTransparency = 1
+status.Text = "Status: Ready"
+status.TextColor3 = Color3.fromRGB(255, 255, 255)
+status.TextScaled = true
+status.Font = Enum.Font.Gotham
+status.Parent = main
+
+--// Start button
+local startButton = Instance.new("TextButton")
+startButton.Name = "StartButton"
+startButton.Size = UDim2.new(1, -30, 0, 65)
+startButton.Position = UDim2.new(0, 15, 0, 135)
+startButton.BackgroundColor3 = Color3.fromRGB(215, 0, 0)
+startButton.Text = "START STEAL LOOP"
+startButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+startButton.TextScaled = true
+startButton.Font = Enum.Font.GothamBold
+startButton.BorderSizePixel = 0
+startButton.AutoButtonColor = true
+startButton.Parent = main
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 10)
+buttonCorner.Parent = startButton
+
+--// Make the window draggable on PC and mobile
+local dragging = false
+local dragStart
+local startPosition
+
+local function updateDrag(input)
+	local delta = input.Position - dragStart
+
+	main.Position = UDim2.new(
+		startPosition.X.Scale,
+		startPosition.X.Offset + delta.X,
+		startPosition.Y.Scale,
+		startPosition.Y.Offset + delta.Y
+	)
+end
+
+header.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = true
+		dragStart = input.Position
+		startPosition = main.Position
+
+		input.Changed:Connect(function()
+
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+
+		end)
+	end
+end)
+
+header.InputChanged:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		if dragging then
+			updateDrag(input)
+		end
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+
+	if dragging then
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			updateDrag(input)
+		end
+	end
+end)
+
+--// Steal system
+local running = false
 local MAX_LOOPS = 10
 local WAIT_TIME = 0.5
 
--- Find a prompt with "Steal" in its ActionText
-local function findStealPrompt()
-	for _, object in ipairs(workspace:GetDescendants()) do
-		if object:IsA("ProximityPrompt") then
-			local actionText = string.lower(object.ActionText or "")
+-- Find the nearest Steal prompt
+local function findNearestStealPrompt(root)
 
-			if string.find(actionText, "steal") then
-				return object
+	local nearestPrompt = nil
+	local nearestDistance = math.huge
+
+	for _, object in ipairs(workspace:GetDescendants()) do
+
+		if object:IsA("ProximityPrompt") then
+
+			local text = string.lower(object.ActionText or "")
+
+			if string.find(text, "steal") then
+
+				local targetPosition
+
+				if object.Parent:IsA("BasePart") then
+					targetPosition = object.Parent.Position
+
+				elseif object.Parent:IsA("Attachment") then
+					targetPosition = object.Parent.WorldPosition
+				end
+
+				if targetPosition then
+
+					local distance =
+						(root.Position - targetPosition).Magnitude
+
+					if distance < nearestDistance then
+						nearestDistance = distance
+						nearestPrompt = object
+					end
+				end
 			end
 		end
 	end
 
-	return nil
+	return nearestPrompt
 end
 
-for i = 1, MAX_LOOPS do
-	-- Make sure the character still exists
-	character = player.Character or player.CharacterAdded:Wait()
-	humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+--// Main loop
+local function startStealLoop()
 
-	-- Find the Steal prompt
-	local prompt = findStealPrompt()
-
-	if not prompt then
-		warn("No Steal prompt found!")
-		break
+	if running then
+		return
 	end
 
-	-- Teleport directly to the prompt
-	humanoidRootPart.CFrame =
-		prompt.Parent.CFrame + Vector3.new(0, 2, 0)
+	running = true
 
-	task.wait()
+	startButton.Text = "RUNNING..."
+	startButton.Active = false
 
-	-- Instantly activate the ProximityPrompt
-	prompt:InputHoldBegin()
-	prompt:InputHoldEnd()
+	local character =
+		player.Character or player.CharacterAdded:Wait()
 
-	-- Wait half a second
-	task.wait(WAIT_TIME)
+	local root =
+		character:WaitForChild("HumanoidRootPart")
 
-	-- Teleport back to the original position
-	humanoidRootPart.CFrame = startingCFrame
+	-- Save spawn position
+	local originalPosition = root.CFrame
 
-	-- Small delay before the next cycle
-	task.wait(0.1)
+	for i = 1, MAX_LOOPS do
+
+		status.Text =
+			"Status: Steal " .. i .. "/" .. MAX_LOOPS
+
+		-- Find nearest Steal prompt
+		local prompt =
+			findNearestStealPrompt(root)
+
+		if not prompt then
+
+			status.Text =
+				"Status: No Steal prompt found"
+
+			break
+		end
+
+		-- Refresh character
+		character =
+			player.Character or player.CharacterAdded:Wait()
+
+		root =
+			character:WaitForChild("HumanoidRootPart")
+
+		local targetPosition
+
+		if prompt.Parent:IsA("BasePart") then
+
+			targetPosition =
+				prompt.Parent.Position
+
+		elseif prompt.Parent:IsA("Attachment") then
+
+			targetPosition =
+				prompt.Parent.WorldPosition
+		end
+
+		if targetPosition then
+
+			-- Teleport to nearest Steal prompt
+			root.CFrame =
+				CFrame.new(
+					targetPosition + Vector3.new(0, 2, 0)
+				)
+		end
+
+		task.wait()
+
+		-- Activate prompt
+		prompt:InputHoldBegin()
+		prompt:InputHoldEnd()
+
+		-- Wait half a second
+		task.wait(WAIT_TIME)
+
+		-- Return to original position
+		root.CFrame =
+			originalPosition
+
+		task.wait(0.1)
+	end
+
+	running = false
+
+	startButton.Active = true
+	startButton.Text = "START STEAL LOOP"
+
+	status.Text = "Status: Finished"
 end
 
--- Finished all 10 attempts
-task.wait(0.2)
-player:Kick("Finished!")
+--// Start
+startButton.MouseButton1Click:Connect(startStealLoop)
