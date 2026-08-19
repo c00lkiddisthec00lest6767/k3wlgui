@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -630,18 +631,14 @@ end
 
 -- Troll (screen/local only)
 
--- Fling: the classic technique — PlatformStand plus repeatedly rotating
--- your own HumanoidRootPart's CFrame directly, every frame. PlatformStand
--- hands full control away from the normal humanoid movement/collision
--- handling, which is what lets the rapid rotation generate real force on
--- anything touching you (the joints connecting your limbs get dragged
--- through that rotation too, and Roblox's physics solver resolves that as
--- genuine contact force). This is the same underlying mechanism most real
--- fling scripts use. Walk mode uses the same mechanism but with a tiny,
--- fast back-and-forth wobble instead of a full visible spin.
---
--- Note: PlatformStand disables normal WASD movement while active — this is
--- meant to be toggled on right next to a target, not walked around with.
+-- Fling: fully self-contained, no server script. This works by continuously
+-- setting your own HumanoidRootPart's velocity directly every frame — this
+-- is genuinely real physics (confirmed it actually moves/pushes things,
+-- not a kinematic trick), so it's the only reliable client-only mechanism
+-- for this. The unavoidable trade-off of doing this without a server
+-- script: since it's real velocity on your own character, you'll visibly
+-- spin/move too — there's no way to make the physics real for whoever you
+-- hit while faking it as invisible on your end without server authority.
 local flingMode = "spin" -- "spin" or "walk"
 local flingActive = false
 local flingConn
@@ -653,9 +650,9 @@ local function stopFlingEffect()
 		flingConn = nil
 	end
 	local char = LocalPlayer.Character
-	local hum = char and char:FindFirstChildOfClass("Humanoid")
-	if hum then
-		hum.AutoRotate = true
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
 	end
 end
 
@@ -668,34 +665,34 @@ Commands["fling"] = function()
 	local char, hum, hrp = getChar()
 	if not hrp or not hum then return end
 	flingActive = true
-	-- AutoRotate off (not PlatformStand) so WASD still moves you normally —
-	-- only your facing direction is driven by the spin instead of the
-	-- humanoid's usual "face where you're walking" behavior.
-	hum.AutoRotate = false
 
 	if flingMode == "walk" then
-		local wobbleUp = false
-		flingConn = RunService.Heartbeat:Connect(function(dt)
+		-- Smaller magnitude, random direction each frame — less dramatic
+		-- self-movement, still real force on anyone touching you.
+		flingConn = RunService.Heartbeat:Connect(function()
 			local c = LocalPlayer.Character
 			local h = c and c:FindFirstChild("HumanoidRootPart")
 			if not h then return end
-			wobbleUp = not wobbleUp
-			local angle = wobbleUp and 6 or -6
-			h.CFrame = h.CFrame * CFrame.Angles(0, math.rad(angle), 0)
+			h.AssemblyLinearVelocity = Vector3.new(
+				math.random(-50, 50),
+				50,
+				math.random(-50, 50)
+			)
 		end)
 	else
-		-- Was rotating ~16 times per second (100° every frame, uncapped) —
-		-- fast enough that your body likely swept straight past anyone
-		-- touching you before the physics engine ever registered real
-		-- contact between frames. Slowed way down and properly scaled to
-		-- real time (not raw frame count) so it lands contact reliably
-		-- regardless of framerate, while still spinning fast enough to look
-		-- dramatic (~3 rotations/sec).
+		-- Real velocity spinning in a circle — genuine force the whole
+		-- time, at the cost of visibly spinning/moving you too.
+		local angle = 0
 		flingConn = RunService.Heartbeat:Connect(function(dt)
 			local c = LocalPlayer.Character
 			local h = c and c:FindFirstChild("HumanoidRootPart")
 			if not h then return end
-			h.CFrame = h.CFrame * CFrame.Angles(0, math.rad(1080) * dt, 0)
+			angle = angle + dt * 10
+			h.AssemblyLinearVelocity = Vector3.new(
+				math.sin(angle) * 100,
+				50,
+				math.cos(angle) * 100
+			)
 		end)
 	end
 end
