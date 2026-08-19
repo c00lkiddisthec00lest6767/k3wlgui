@@ -97,7 +97,7 @@ local buttonCorner = Instance.new("UICorner")
 buttonCorner.CornerRadius = UDim.new(0, 10)
 buttonCorner.Parent = startButton
 
---// Dragging support
+--// Dragging
 local dragging = false
 local dragStart
 local startPosition
@@ -142,7 +142,9 @@ end)
 --// Settings
 local running = false
 local MAX_LOOPS = 10
-local WAIT_TIME = 0.5
+
+-- How much extra time to allow for the prompt to finish
+local PROMPT_TIMEOUT_EXTRA = 2
 
 --// Find nearest Steal prompt
 local function findNearestStealPrompt(root)
@@ -184,6 +186,70 @@ local function findNearestStealPrompt(root)
 	return nearestPrompt
 end
 
+--// Hold prompt until it actually finishes
+local function holdPromptUntilFinished(prompt)
+
+	if not prompt or not prompt.Parent then
+		return false
+	end
+
+	local finished = false
+
+	-- Listen BEFORE starting the hold
+	local connection
+
+	connection = prompt.Triggered:Connect(function(triggeringPlayer)
+
+		-- In a local game, make sure this is our player
+		if triggeringPlayer == player then
+			finished = true
+		end
+	end)
+
+	-- Make sure the prompt is enabled
+	if not prompt.Enabled then
+		connection:Disconnect()
+		return false
+	end
+
+	-- Read its actual hold duration
+	local holdDuration = prompt.HoldDuration
+
+	status.Text = "Status: Holding..."
+
+	-- Start holding
+	prompt:InputHoldBegin()
+
+	-- Wait until Triggered fires
+	-- or until a safety timeout occurs
+	local timeout = holdDuration + PROMPT_TIMEOUT_EXTRA
+	local startTime = os.clock()
+
+	while not finished do
+
+		if not prompt.Parent then
+			break
+		end
+
+		if not prompt.Enabled then
+			break
+		end
+
+		if os.clock() - startTime >= timeout then
+			break
+		end
+
+		task.wait()
+	end
+
+	-- Release the prompt
+	prompt:InputHoldEnd()
+
+	connection:Disconnect()
+
+	return finished
+end
+
 --// Main loop
 local function startStealLoop()
 
@@ -208,15 +274,17 @@ local function startStealLoop()
 	for i = 1, MAX_LOOPS do
 
 		status.Text =
-			"Status: Steal " .. i .. "/" .. MAX_LOOPS
+			"Status: Finding Steal " .. i .. "/" .. MAX_LOOPS
 
-		-- Find nearest Steal prompt
+		-- Find nearest prompt
 		local prompt =
 			findNearestStealPrompt(root)
 
 		if not prompt then
+
 			status.Text =
 				"Status: No Steal prompt found"
+
 			break
 		end
 
@@ -227,7 +295,7 @@ local function startStealLoop()
 		root =
 			character:WaitForChild("HumanoidRootPart")
 
-		-- Get target position
+		-- Get prompt position
 		local targetPosition
 
 		if prompt.Parent:IsA("BasePart") then
@@ -237,29 +305,52 @@ local function startStealLoop()
 			targetPosition = prompt.Parent.WorldPosition
 		end
 
-		if targetPosition then
+		if not targetPosition then
 
-			-- Teleport to nearest Steal prompt
-			root.CFrame =
-				CFrame.new(
-					targetPosition + Vector3.new(0, 2, 0)
-				)
+			status.Text =
+				"Status: Invalid prompt position"
+
+			break
 		end
 
+		-- Teleport to the nearest Steal prompt
+		root.CFrame =
+			CFrame.new(
+				targetPosition + Vector3.new(0, 2, 0)
+			)
+
+		-- Give the teleport a moment to register
 		task.wait()
 
-		-- Make the prompt instant
-		prompt.HoldDuration = 0
+		-- Automatically hold the prompt
+		local completed =
+			holdPromptUntilFinished(prompt)
 
-		-- Activate immediately
-		prompt:InputHoldBegin()
-		prompt:InputHoldEnd()
+		if not completed then
 
-		-- Wait half a second
-		task.wait(WAIT_TIME)
+			status.Text =
+				"Status: Prompt didn't finish"
 
-		-- Return to original position
-		root.CFrame = originalPosition
+			-- Stop holding and don't teleport back
+			-- until the current interaction has ended.
+			break
+		end
+
+		-- The Steal prompt has actually completed
+		status.Text =
+			"Status: Steal complete!"
+
+		task.wait(0.05)
+
+		-- Teleport back to the original position
+		character =
+			player.Character or player.CharacterAdded:Wait()
+
+		root =
+			character:WaitForChild("HumanoidRootPart")
+
+		root.CFrame =
+			originalPosition
 
 		task.wait(0.1)
 	end
