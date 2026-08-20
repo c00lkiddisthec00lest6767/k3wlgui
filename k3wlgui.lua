@@ -667,21 +667,21 @@ Commands["fling"] = function()
 	flingActive = true
 
 	if flingMode == "walk" then
-		-- Smaller magnitude, random direction each frame — less dramatic
-		-- self-movement, still real force on anyone touching you.
+		-- Smaller magnitude, random direction each frame, no vertical lift.
 		flingConn = RunService.Heartbeat:Connect(function()
 			local c = LocalPlayer.Character
 			local h = c and c:FindFirstChild("HumanoidRootPart")
 			if not h then return end
 			h.AssemblyLinearVelocity = Vector3.new(
-				math.random(-50, 50),
-				50,
-				math.random(-50, 50)
+				math.random(-25, 25),
+				0,
+				math.random(-25, 25)
 			)
 		end)
 	else
-		-- Real velocity spinning in a circle — genuine force the whole
-		-- time, at the cost of visibly spinning/moving you too.
+		-- Real velocity spinning in a circle, kept flat (no vertical lift —
+		-- that was what made it feel like you were flying) and a much
+		-- smaller radius so it's a contained spin, not a tornado.
 		local angle = 0
 		flingConn = RunService.Heartbeat:Connect(function(dt)
 			local c = LocalPlayer.Character
@@ -689,9 +689,9 @@ Commands["fling"] = function()
 			if not h then return end
 			angle = angle + dt * 10
 			h.AssemblyLinearVelocity = Vector3.new(
-				math.sin(angle) * 100,
-				50,
-				math.cos(angle) * 100
+				math.sin(angle) * 25,
+				0,
+				math.cos(angle) * 25
 			)
 		end)
 	end
