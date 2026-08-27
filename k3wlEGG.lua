@@ -1,7 +1,8 @@
+--==================================================
 -- k3wlEGG
 -- by k3wlkid
--- Mobile + PC friendly
--- Steal / Hatch automation with loop count
+-- Roblox Studio LocalScript
+--==================================================
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -29,7 +30,12 @@ local totalLoops = 1
 --==================================================
 
 local function getRoot()
-	local character = player.Character or player.CharacterAdded:Wait()
+	local character = player.Character
+
+	if not character then
+		character = player.CharacterAdded:Wait()
+	end
+
 	return character:WaitForChild("HumanoidRootPart")
 end
 
@@ -40,22 +46,29 @@ end
 local gui = Instance.new("ScreenGui")
 gui.Name = "k3wlEGG"
 gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
 gui.Parent = player:WaitForChild("PlayerGui")
 
 local frame = Instance.new("Frame")
 frame.Name = "Main"
-frame.Size = UDim2.new(0, 310, 0, 300)
-frame.Position = UDim2.new(0.5, -155, 0.5, -150)
-frame.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+frame.Size = UDim2.fromOffset(360, 315)
+frame.Position = UDim2.new(0.5, -180, 0.5, -157)
+frame.BackgroundColor3 = Color3.fromRGB(190, 0, 0)
 frame.BorderSizePixel = 0
+frame.Active = true
 frame.Parent = gui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+corner.CornerRadius = UDim.new(0, 14)
 corner.Parent = frame
 
+--==================================================
+-- TITLE
+--==================================================
+
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 45)
+title.Position = UDim2.fromOffset(10, 8)
+title.Size = UDim2.new(1, -20, 0, 45)
 title.BackgroundTransparency = 1
 title.Text = "k3wlEGG"
 title.TextColor3 = Color3.new(1, 1, 1)
@@ -64,8 +77,8 @@ title.Font = Enum.Font.GothamBold
 title.Parent = frame
 
 local subtitle = Instance.new("TextLabel")
-subtitle.Position = UDim2.new(0, 0, 0, 40)
-subtitle.Size = UDim2.new(1, 0, 0, 25)
+subtitle.Position = UDim2.fromOffset(10, 48)
+subtitle.Size = UDim2.new(1, -20, 0, 25)
 subtitle.BackgroundTransparency = 1
 subtitle.Text = "Steal + Hatch Automation"
 subtitle.TextColor3 = Color3.fromRGB(255, 220, 220)
@@ -78,8 +91,8 @@ subtitle.Parent = frame
 --==================================================
 
 local loopLabel = Instance.new("TextLabel")
-loopLabel.Position = UDim2.new(0.1, 0, 0, 72)
-loopLabel.Size = UDim2.new(0.35, 0, 0, 35)
+loopLabel.Position = UDim2.fromOffset(20, 82)
+loopLabel.Size = UDim2.fromOffset(65, 35)
 loopLabel.BackgroundTransparency = 1
 loopLabel.Text = "Loops:"
 loopLabel.TextColor3 = Color3.new(1, 1, 1)
@@ -88,15 +101,15 @@ loopLabel.Font = Enum.Font.GothamBold
 loopLabel.Parent = frame
 
 --==================================================
--- LOOP TEXTBOX
+-- LOOP BOX
 --==================================================
 
 local loopBox = Instance.new("TextBox")
-loopBox.Position = UDim2.new(0.47, 0, 0, 72)
-loopBox.Size = UDim2.new(0.43, 0, 0, 35)
+loopBox.Position = UDim2.fromOffset(90, 82)
+loopBox.Size = UDim2.fromOffset(95, 35)
 loopBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-loopBox.TextColor3 = Color3.fromRGB(30, 30, 30)
-loopBox.PlaceholderText = "1 = one time"
+loopBox.TextColor3 = Color3.fromRGB(25, 25, 25)
+loopBox.PlaceholderText = "Loops"
 loopBox.Text = "1"
 loopBox.TextScaled = true
 loopBox.Font = Enum.Font.GothamBold
@@ -108,27 +121,41 @@ boxCorner.CornerRadius = UDim.new(0, 7)
 boxCorner.Parent = loopBox
 
 --==================================================
+-- INFINITE TEXT
+--==================================================
+
+local infiniteText = Instance.new("TextLabel")
+infiniteText.Position = UDim2.fromOffset(193, 82)
+infiniteText.Size = UDim2.fromOffset(145, 35)
+infiniteText.BackgroundTransparency = 1
+infiniteText.Text = "0 times = infinite"
+infiniteText.TextColor3 = Color3.fromRGB(255, 235, 235)
+infiniteText.TextScaled = true
+infiniteText.Font = Enum.Font.GothamBold
+infiniteText.Parent = frame
+
+--==================================================
 -- STATUS
 --==================================================
 
 local status = Instance.new("TextLabel")
-status.Position = UDim2.new(0.05, 0, 0, 112)
-status.Size = UDim2.new(0.9, 0, 0, 25)
+status.Position = UDim2.fromOffset(15, 120)
+status.Size = UDim2.new(1, -30, 0, 38)
 status.BackgroundTransparency = 1
 status.Text = "Status: Ready"
-status.TextColor3 = Color3.fromRGB(255, 230, 230)
+status.TextColor3 = Color3.fromRGB(255, 240, 240)
 status.TextScaled = true
 status.Font = Enum.Font.Gotham
 status.Parent = frame
 
 --==================================================
--- START BUTTON
+-- START
 --==================================================
 
 local startButton = Instance.new("TextButton")
-startButton.Position = UDim2.new(0.1, 0, 0, 145)
-startButton.Size = UDim2.new(0.8, 0, 0, 48)
-startButton.BackgroundColor3 = Color3.fromRGB(0, 170, 70)
+startButton.Position = UDim2.fromOffset(30, 162)
+startButton.Size = UDim2.new(1, -60, 0, 48)
+startButton.BackgroundColor3 = Color3.fromRGB(0, 175, 70)
 startButton.Text = "START"
 startButton.TextColor3 = Color3.new(1, 1, 1)
 startButton.TextScaled = true
@@ -136,17 +163,17 @@ startButton.Font = Enum.Font.GothamBold
 startButton.Parent = frame
 
 local startCorner = Instance.new("UICorner")
-startCorner.CornerRadius = UDim.new(0, 8)
+startCorner.CornerRadius = UDim.new(0, 9)
 startCorner.Parent = startButton
 
 --==================================================
--- STOP BUTTON
+-- STOP
 --==================================================
 
 local stopButton = Instance.new("TextButton")
-stopButton.Position = UDim2.new(0.1, 0, 0, 201)
-stopButton.Size = UDim2.new(0.8, 0, 0, 40)
-stopButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+stopButton.Position = UDim2.fromOffset(30, 218)
+stopButton.Size = UDim2.new(1, -60, 0, 40)
+stopButton.BackgroundColor3 = Color3.fromRGB(65, 65, 65)
 stopButton.Text = "STOP"
 stopButton.TextColor3 = Color3.new(1, 1, 1)
 stopButton.TextScaled = true
@@ -154,7 +181,7 @@ stopButton.Font = Enum.Font.GothamBold
 stopButton.Parent = frame
 
 local stopCorner = Instance.new("UICorner")
-stopCorner.CornerRadius = UDim.new(0, 8)
+stopCorner.CornerRadius = UDim.new(0, 9)
 stopCorner.Parent = stopButton
 
 --==================================================
@@ -172,10 +199,11 @@ credit.Font = Enum.Font.GothamBold
 credit.Parent = frame
 
 --==================================================
--- PROMPT HELPERS
+-- PROMPT POSITION
 --==================================================
 
 local function getPromptPosition(prompt)
+
 	local parent = prompt.Parent
 
 	if parent:IsA("BasePart") then
@@ -187,7 +215,8 @@ local function getPromptPosition(prompt)
 	end
 
 	if parent:IsA("Model") then
-		local part = parent.PrimaryPart
+		local part =
+			parent.PrimaryPart
 			or parent:FindFirstChildWhichIsA("BasePart")
 
 		if part then
@@ -198,19 +227,25 @@ local function getPromptPosition(prompt)
 	return nil
 end
 
+--==================================================
+-- GET PROMPTS
+--==================================================
+
 local function getPrompts(name)
-	local prompts = {}
 
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("ProximityPrompt")
-			and obj.Name == name
-			and obj.Enabled then
+	local result = {}
 
-			table.insert(prompts, obj)
+	for _, object in ipairs(workspace:GetDescendants()) do
+
+		if object:IsA("ProximityPrompt")
+			and object.Name == name
+			and object.Enabled then
+
+			table.insert(result, object)
 		end
 	end
 
-	return prompts
+	return result
 end
 
 --==================================================
@@ -218,15 +253,24 @@ end
 --==================================================
 
 local function getFarthestSteal()
+
 	local root = getRoot()
 
 	local farthest = nil
 	local farthestDistance = -math.huge
 
-	for _, prompt in ipairs(getPrompts(STEAL_NAME)) do
+	local prompts = getPrompts(STEAL_NAME)
+
+	if #prompts == 0 then
+		return nil
+	end
+
+	for _, prompt in ipairs(prompts) do
+
 		local position = getPromptPosition(prompt)
 
 		if position then
+
 			local distance =
 				(root.Position - position).Magnitude
 
@@ -245,6 +289,7 @@ end
 --==================================================
 
 local function teleportToPrompt(prompt)
+
 	if not prompt then
 		return false
 	end
@@ -264,40 +309,22 @@ local function teleportToPrompt(prompt)
 end
 
 --==================================================
--- INTERACT
---==================================================
-
-local function interact(prompt)
-	if not prompt or not prompt:IsA("ProximityPrompt") then
-		return
-	end
-
-	-- For your own Studio experience, have the server
-	-- listen for PromptTriggered and perform the action.
-
-	prompt:InputHoldBegin()
-
-	if prompt.HoldDuration > 0 then
-		task.wait(prompt.HoldDuration)
-	end
-
-	prompt:InputHoldEnd()
-end
-
---==================================================
--- FIND HATCH
+-- FIND CLOSEST HATCH
 --==================================================
 
 local function findHatch()
+
 	local root = getRoot()
 
 	local closest = nil
 	local closestDistance = math.huge
 
 	for _, prompt in ipairs(getPrompts(HATCH_NAME)) do
+
 		local position = getPromptPosition(prompt)
 
 		if position then
+
 			local distance =
 				(root.Position - position).Magnitude
 
@@ -316,6 +343,7 @@ end
 --==================================================
 
 local function handleHatch(prompt)
+
 	if hatchBusy or not running then
 		return
 	end
@@ -324,25 +352,34 @@ local function handleHatch(prompt)
 
 	local root = getRoot()
 
-	-- Save current task position.
+	-- Remember exactly where the task was.
 	interruptedCFrame = root.CFrame
 
-	status.Text = "Status: HATCH DETECTED!"
+	status.Text = "🥚 HATCH DETECTED!"
 
-	-- Go to Hatch.
-	if teleportToPrompt(prompt) then
+	task.wait(0.1)
 
-		task.wait(0.15)
-
-		interact(prompt)
-
-		task.wait(0.15)
-
-		-- Return to task.
-		if interruptedCFrame and running then
-			root.CFrame = interruptedCFrame
-		end
+	if not running then
+		hatchBusy = false
+		return
 	end
+
+	teleportToPrompt(prompt)
+
+	task.wait(0.2)
+
+	-- Prompt interaction belongs to the game's
+	-- normal ProximityPrompt/server system.
+	--
+	-- If this is your own game, the server should
+	-- handle the actual Hatch action when the prompt
+	-- is triggered.
+
+	if interruptedCFrame and running then
+		root.CFrame = interruptedCFrame
+	end
+
+	task.wait(0.15)
 
 	interruptedCFrame = nil
 	hatchBusy = false
@@ -361,6 +398,7 @@ end
 --==================================================
 
 task.spawn(function()
+
 	while true do
 
 		if running and not hatchBusy then
@@ -370,7 +408,6 @@ task.spawn(function()
 			if hatch then
 				handleHatch(hatch)
 			end
-
 		end
 
 		task.wait(0.1)
@@ -378,93 +415,69 @@ task.spawn(function()
 end)
 
 --==================================================
--- ONE STEAL TASK
+-- ONE LOOP
 --==================================================
 
 local function runOneTask()
+
 	if not running then
 		return false
 	end
 
 	local root = getRoot()
 
-	-- Save original position.
+	-- Save starting position.
 	savedCFrame = root.CFrame
 
-	status.Text = "Status: Finding farthest Steal..."
+	status.Text = "Status: Looking for Steal..."
+
+	task.wait(0.1)
 
 	local steal = getFarthestSteal()
 
 	if not steal then
-		status.Text = "Status: No Steal found"
+		status.Text = "ERROR: No 'Steal' prompt found!"
 		return false
 	end
 
-	status.Text = "Status: Going to Steal..."
+	status.Text = "Status: Steal found!"
+
+	task.wait(0.2)
+
+	if not running then
+		return false
+	end
 
 	teleportToPrompt(steal)
 
-	task.wait(0.15)
+	status.Text = "Status: At Steal..."
+
+	task.wait(0.3)
 
 	if not running then
 		return false
 	end
 
-	status.Text = "Status: Stealing..."
-
-	interact(steal)
-
-	task.wait(0.15)
-
-	if not running then
-		return false
-	end
-
-	-- Return to original position.
-	status.Text = "Status: Returning..."
-
+	-- Return to the saved position.
 	root.CFrame = savedCFrame
 
-	task.wait(0.15)
+	status.Text = "Status: Back at saved position"
 
-	if not running then
-		return false
-	end
-
-	-- Final interaction near saved position.
-	status.Text = "Status: Finishing..."
-
-	for _, prompt in ipairs(workspace:GetDescendants()) do
-
-		if prompt:IsA("ProximityPrompt")
-			and prompt.Enabled then
-
-			local position = getPromptPosition(prompt)
-
-			if position then
-
-				local distance =
-					(position - savedCFrame.Position).Magnitude
-
-				if distance <= 8 then
-					interact(prompt)
-					break
-				end
-			end
-		end
-	end
+	task.wait(0.3)
 
 	return true
 end
 
 --==================================================
--- LOOP PARSER
+-- LOOP NUMBER
 --==================================================
 
 local function getLoopCount()
+
 	local number = tonumber(loopBox.Text)
 
 	if not number then
+		loopBox.Text = "1"
 		return 1
 	end
 
@@ -474,14 +487,17 @@ local function getLoopCount()
 		number = 1
 	end
 
+	loopBox.Text = tostring(number)
+
 	return number
 end
 
 --==================================================
--- MAIN LOOP
+-- MAIN AUTOMATION
 --==================================================
 
 local function startAutomation()
+
 	if running then
 		return
 	end
@@ -492,46 +508,49 @@ local function startAutomation()
 
 	totalLoops = getLoopCount()
 
-	if totalLoops == 0 then
-		status.Text = "Status: Running ∞ loops"
-	else
-		status.Text =
-			"Status: Running " ..
-			totalLoops ..
-			" loops"
-	end
+	startButton.Text = "RUNNING..."
 
-	while running do
+	task.spawn(function()
 
-		-- 0 = infinite
-		if totalLoops > 0
-			and currentLoop >= totalLoops then
-			break
+		while running do
+
+			if totalLoops > 0
+				and currentLoop >= totalLoops then
+
+				break
+			end
+
+			currentLoop += 1
+
+			status.Text =
+				"Status: Loop " ..
+				currentLoop ..
+				"/" ..
+				(totalLoops == 0 and "∞" or totalLoops)
+
+			local success = runOneTask()
+
+			if not success then
+				break
+			end
+
+			task.wait(0.25)
 		end
 
-		currentLoop += 1
+		running = false
+		hatchBusy = false
 
-		status.Text =
-			"Status: Loop " ..
-			currentLoop ..
-			"/" ..
-			(totalLoops == 0 and "∞" or totalLoops)
+		startButton.Text = "START"
 
-		local success = runOneTask()
-
-		if not success then
-			break
+		if currentLoop > 0 then
+			status.Text =
+				"Status: Finished (" ..
+				currentLoop ..
+				" loops)"
+		else
+			status.Text = "Status: Stopped"
 		end
-
-		-- Small delay before next loop.
-		task.wait(0.2)
-	end
-
-	running = false
-	hatchBusy = false
-
-	startButton.Text = "START"
-	status.Text = "Status: Finished"
+	end)
 end
 
 --==================================================
@@ -539,16 +558,11 @@ end
 --==================================================
 
 startButton.Activated:Connect(function()
-	if running then
-		return
-	end
-
-	startButton.Text = "RUNNING..."
-
-	task.spawn(startAutomation)
+	startAutomation()
 end)
 
 stopButton.Activated:Connect(function()
+
 	running = false
 	hatchBusy = false
 	interruptedCFrame = nil
@@ -558,12 +572,12 @@ stopButton.Activated:Connect(function()
 end)
 
 --==================================================
--- MOBILE + PC DRAGGING
+-- PC + MOBILE DRAG
 --==================================================
 
 local dragging = false
-local dragStart
-local startPosition
+local dragStart = nil
+local startPosition = nil
 
 frame.InputBegan:Connect(function(input)
 
