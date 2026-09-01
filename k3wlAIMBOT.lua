@@ -1,258 +1,273 @@
---// k3wlAIMBOT - For your own Roblox experience
---// Mobile + PC friendly
+```lua
+--// AIM ASSIST UI
+--// For your own Roblox Studio game
+--// Put this LocalScript in StarterPlayer > StarterPlayerScripts
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
 --// SETTINGS
-local AIMBOT_ENABLED = false
-local FOV_RADIUS = 150
-local AIM_SMOOTHNESS = 0.18
-local TEAM_CHECK = true
+local AimbotEnabled = false
+local FOV = 250
+local Smoothness = 0.15
+local MaxDistance = 300
 
---//==================================================
---// UI
---//==================================================
-
+--// GUI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "k3wlAIMBOT"
+ScreenGui.Name = "AimAssistUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- Main red background
 local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.Size = UDim2.fromOffset(190, 90)
-Main.Position = UDim2.new(0, 15, 0.5, -45)
-Main.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+Main.Size = UDim2.new(0, 280, 0, 210)
+Main.Position = UDim2.new(0.5, -140, 0.5, -105)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Main.BorderSizePixel = 0
 Main.Parent = ScreenGui
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = Main
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = Main
 
--- Title
+--// TITLE
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundTransparency = 1
-Title.Text = "k3wlAIMBOT"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.TextScaled = true
+Title.Text = "🎯 AIM ASSIST"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 22
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Main
 
--- Toggle button
+--// STATUS
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -30, 0, 25)
+Status.Position = UDim2.new(0, 15, 0, 45)
+Status.BackgroundTransparency = 1
+Status.Text = "Status: OFF"
+Status.TextColor3 = Color3.fromRGB(255, 80, 80)
+Status.TextSize = 16
+Status.Font = Enum.Font.Gotham
+Status.Parent = Main
+
+--// TOGGLE
 local Toggle = Instance.new("TextButton")
-Toggle.Name = "Toggle"
-Toggle.Size = UDim2.new(1, -20, 0, 38)
-Toggle.Position = UDim2.new(0, 10, 0, 42)
-Toggle.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-Toggle.TextColor3 = Color3.new(1, 1, 1)
+Toggle.Size = UDim2.new(1, -30, 0, 45)
+Toggle.Position = UDim2.new(0, 15, 0, 80)
+Toggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 Toggle.Text = "AIMBOT: OFF"
-Toggle.TextScaled = true
+Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+Toggle.TextSize = 18
 Toggle.Font = Enum.Font.GothamBold
-Toggle.AutoButtonColor = true
+Toggle.BorderSizePixel = 0
 Toggle.Parent = Main
 
 local ToggleCorner = Instance.new("UICorner")
 ToggleCorner.CornerRadius = UDim.new(0, 8)
 ToggleCorner.Parent = Toggle
 
---//==================================================
---// FOV CIRCLE
---//==================================================
+Toggle.MouseButton1Click:Connect(function()
+	AimbotEnabled = not AimbotEnabled
 
-local FOV = Instance.new("Frame")
-FOV.Name = "FOV"
-FOV.Size = UDim2.fromOffset(FOV_RADIUS * 2, FOV_RADIUS * 2)
-FOV.AnchorPoint = Vector2.new(0.5, 0.5)
-FOV.Position = UDim2.fromScale(0.5, 0.5)
-FOV.BackgroundTransparency = 1
-FOV.BorderSizePixel = 0
-FOV.Visible = false
-FOV.Parent = ScreenGui
-
-local FOVCorner = Instance.new("UICorner")
-FOVCorner.CornerRadius = UDim.new(1, 0)
-FOVCorner.Parent = FOV
-
-local FOVStroke = Instance.new("UIStroke")
-FOVStroke.Color = Color3.fromRGB(255, 0, 0)
-FOVStroke.Thickness = 2
-FOVStroke.Transparency = 0.15
-FOVStroke.Parent = FOV
-
---//==================================================
---// STARTUP NOTIFICATION
---//==================================================
-
-task.spawn(function()
-	for _ = 1, 5 do
-		local success = pcall(function()
-			StarterGui:SetCore(
-				"SendNotification",
-				{
-					Title = "k3wlAIMBOT",
-					Text = "a simple aimbot by k3wlkid ty for using >3",
-					Duration = 5
-				}
-			)
-		end)
-
-		if success then
-			break
-		end
-
-		task.wait(1)
+	if AimbotEnabled then
+		Toggle.Text = "AIMBOT: ON"
+		Toggle.BackgroundColor3 = Color3.fromRGB(45, 150, 70)
+		Status.Text = "Status: ON"
+		Status.TextColor3 = Color3.fromRGB(80, 255, 100)
+	else
+		Toggle.Text = "AIMBOT: OFF"
+		Toggle.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+		Status.Text = "Status: OFF"
+		Status.TextColor3 = Color3.fromRGB(255, 80, 80)
 	end
 end)
 
---//==================================================
---// TEAM CHECK
---//==================================================
+--// FOV TEXT
+local FOVLabel = Instance.new("TextLabel")
+FOVLabel.Size = UDim2.new(1, -30, 0, 25)
+FOVLabel.Position = UDim2.new(0, 15, 0, 135)
+FOVLabel.BackgroundTransparency = 1
+FOVLabel.Text = "FOV: 250"
+FOVLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+FOVLabel.TextSize = 15
+FOVLabel.Font = Enum.Font.Gotham
+FOVLabel.TextXAlignment = Enum.TextXAlignment.Left
+FOVLabel.Parent = Main
 
-local function IsTeammate(player)
-	if not TEAM_CHECK then
-		return false
-	end
+--// FOV SLIDER
+local Slider = Instance.new("TextButton")
+Slider.Size = UDim2.new(1, -30, 0, 15)
+Slider.Position = UDim2.new(0, 15, 0, 165)
+Slider.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+Slider.Text = ""
+Slider.BorderSizePixel = 0
+Slider.AutoButtonColor = false
+Slider.Parent = Main
 
-	if not LocalPlayer.Team or not player.Team then
-		return false
-	end
+local SliderCorner = Instance.new("UICorner")
+SliderCorner.CornerRadius = UDim.new(1, 0)
+SliderCorner.Parent = Slider
 
-	return LocalPlayer.Team == player.Team
-end
+local Fill = Instance.new("Frame")
+Fill.Size = UDim2.new(FOV / 500, 0, 1, 0)
+Fill.BackgroundColor3 = Color3.fromRGB(80, 150, 255)
+Fill.BorderSizePixel = 0
+Fill.Parent = Slider
 
---//==================================================
---// VALID TARGET
---//==================================================
+local FillCorner = Instance.new("UICorner")
+FillCorner.CornerRadius = UDim.new(1, 0)
+FillCorner.Parent = Fill
 
-local function GetHRP(player)
-	if not player or player == LocalPlayer then
-		return nil
-	end
-
-	if IsTeammate(player) then
-		return nil
-	end
-
-	local character = player.Character
-	if not character then
-		return nil
-	end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-
-	if not humanoid or not hrp then
-		return nil
-	end
-
-	if humanoid.Health <= 0 then
-		return nil
-	end
-
-	return hrp
-end
-
---//==================================================
---// FIND NEAREST HRP IN FOV
---//==================================================
-
-local function GetNearestTarget()
-	local viewportSize = Camera.ViewportSize
-	local screenCenter = Vector2.new(
-		viewportSize.X / 2,
-		viewportSize.Y / 2
+local function updateFOV(inputX)
+	local relative = math.clamp(
+		(inputX - Slider.AbsolutePosition.X) / Slider.AbsoluteSize.X,
+		0,
+		1
 	)
 
-	local closestHRP = nil
-	local closestDistance = FOV_RADIUS
+	FOV = math.floor(50 + relative * 450)
+
+	Fill.Size = UDim2.new(FOV / 500, 0, 1, 0)
+	FOVLabel.Text = "FOV: " .. FOV
+end
+
+Slider.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		updateFOV(input.Position.X)
+	end
+end)
+
+Slider.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+			updateFOV(input.Position.X)
+		end
+	end
+end)
+
+--// FIND TARGET
+local function getClosestTarget()
+	local closestPlayer = nil
+	local closestDistance = FOV
+
+	local mousePosition = UserInputService:GetMouseLocation()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		local hrp = GetHRP(player)
+		if player ~= LocalPlayer and player.Character then
 
-		if hrp then
-			local screenPosition, visible =
-				Camera:WorldToViewportPoint(hrp.Position)
+			local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+			local root = player.Character:FindFirstChild("HumanoidRootPart")
 
-			if visible and screenPosition.Z > 0 then
-				local targetPosition = Vector2.new(
-					screenPosition.X,
-					screenPosition.Y
-				)
+			if humanoid and root and humanoid.Health > 0 then
 
 				local distance =
-					(targetPosition - screenCenter).Magnitude
+					(Camera.CFrame.Position - root.Position).Magnitude
 
-				if distance < closestDistance then
-					closestDistance = distance
-					closestHRP = hrp
+				if distance <= MaxDistance then
+
+					local screenPosition, visible =
+						Camera:WorldToViewportPoint(root.Position)
+
+					if visible and screenPosition.Z > 0 then
+
+						local screenDistance = (
+							Vector2.new(screenPosition.X, screenPosition.Y)
+							- mousePosition
+						).Magnitude
+
+						if screenDistance < closestDistance then
+							closestDistance = screenDistance
+							closestPlayer = player
+						end
+					end
 				end
 			end
 		end
 	end
 
-	return closestHRP
+	return closestPlayer
 end
 
---//==================================================
---// TOGGLE
---//==================================================
+--// AIM
+RunService.RenderStepped:Connect(function()
 
-local function UpdateButton()
-	if AIMBOT_ENABLED then
-		Toggle.Text = "AIMBOT: ON"
-		Toggle.BackgroundColor3 = Color3.fromRGB(0, 130, 0)
-		FOV.Visible = true
-	else
-		Toggle.Text = "AIMBOT: OFF"
-		Toggle.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-		FOV.Visible = false
+	if not AimbotEnabled then
+		return
 	end
-end
 
-Toggle.Activated:Connect(function()
-	AIMBOT_ENABLED = not AIMBOT_ENABLED
-	UpdateButton()
+	local target = getClosestTarget()
+
+	if target and target.Character then
+
+		local root =
+			target.Character:FindFirstChild("HumanoidRootPart")
+
+		if root then
+
+			local cameraPosition = Camera.CFrame.Position
+
+			local targetCFrame =
+				CFrame.lookAt(cameraPosition, root.Position)
+
+			Camera.CFrame =
+				Camera.CFrame:Lerp(
+					targetCFrame,
+					Smoothness
+				)
+		end
+	end
 end)
 
-UpdateButton()
+--// DRAGGING
+local dragging = false
+local dragStart
+local startPosition
 
---//==================================================
---// AIM LOOP
---//==================================================
+Title.InputBegan:Connect(function(input)
 
-RunService:BindToRenderStep(
-	"k3wlAIMBOT",
-	Enum.RenderPriority.Camera.Value + 1,
-	function()
-		if not AIMBOT_ENABLED then
-			return
-		end
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
 
-		local target = GetNearestTarget()
+		dragging = true
+		dragStart = input.Position
+		startPosition = Main.Position
+	end
+end)
 
-		if not target then
-			return
-		end
+UserInputService.InputChanged:Connect(function(input)
 
-		-- Smoothly rotate camera toward target HRP
-		local cameraPosition = Camera.CFrame.Position
+	if not dragging then
+		return
+	end
 
-		local targetCFrame = CFrame.lookAt(
-			cameraPosition,
-			target.Position
-		)
+	if input.UserInputType == Enum.UserInputType.MouseMovement
+		or input.UserInputType == Enum.UserInputType.Touch then
 
-		Camera.CFrame = Camera.CFrame:Lerp(
-			targetCFrame,
-			AIM_SMOOTHNESS
+		local delta = input.Position - dragStart
+
+		Main.Position = UDim2.new(
+			startPosition.X.Scale,
+			startPosition.X.Offset + delta.X,
+			startPosition.Y.Scale,
+			startPosition.Y.Offset + delta.Y
 		)
 	end
-)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		dragging = false
+	end
+end)
+```
